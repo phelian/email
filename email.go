@@ -5,13 +5,10 @@ package email
 import (
 	"bytes"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"io"
 	"mime"
 	"mime/multipart"
-	"net/mail"
-	"net/smtp"
 	"net/textproto"
 	"os"
 	"path/filepath"
@@ -38,9 +35,19 @@ type Email struct {
 	ReadReceipt []string
 }
 
-// NewEmail creates an Email, and returns the pointer to it.
+// NewEmail creates an Email, and returns the pointer to it. Default from to config's from is set.
 func NewEmail() *Email {
-	return &Email{Headers: textproto.MIMEHeader{}}
+	return &Email{Headers: textproto.MIMEHeader{}, From: configGetFrom()}
+}
+
+// SetMessage adds string as email message
+func (e *Email) SetMessage(text string) {
+	e.Text = []byte(text)
+}
+
+// SetHTML adds string as email html message
+func (e *Email) SetHTML(text string) {
+	e.HTML = []byte(text)
 }
 
 // Attach is used to attach content from an io.Reader to the email.
@@ -189,34 +196,6 @@ func (e *Email) Bytes() ([]byte, error) {
 		return nil, err
 	}
 	return buff.Bytes(), nil
-}
-
-// Send an email using the given host and SMTP auth (optional), returns any error thrown by smtp.SendMail
-// This function merges the To, Cc, and Bcc fields and calls the smtp.SendMail function using the Email.Bytes() output as the message
-func (e *Email) Send(addr string, a smtp.Auth) error {
-	// Merge the To, Cc, and Bcc fields
-	to := make([]string, 0, len(e.To)+len(e.Cc)+len(e.Bcc))
-	to = append(append(append(to, e.To...), e.Cc...), e.Bcc...)
-	for i := 0; i < len(to); i++ {
-		addr, err := mail.ParseAddress(to[i])
-		if err != nil {
-			return err
-		}
-		to[i] = addr.Address
-	}
-	// Check to make sure there is at least one recipient and one "From" address
-	if e.From == "" || len(to) == 0 {
-		return errors.New("Must specify at least one From address and one To address")
-	}
-	from, err := mail.ParseAddress(e.From)
-	if err != nil {
-		return err
-	}
-	raw, err := e.Bytes()
-	if err != nil {
-		return err
-	}
-	return smtp.SendMail(addr, a, from.Address, to, raw)
 }
 
 // Attachment is a struct representing an email attachment.
