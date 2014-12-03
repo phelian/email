@@ -112,7 +112,7 @@ func ExampleGmail() {
 	e.Subject = "Awesome Subject"
 	e.Text = []byte("Text Body is, of course, supported!\n")
 	e.HTML = []byte("<h1>Fancy Html is supported, too!</h1>\n")
-	SendSmtpAddr(e, "smtp.gmail.com:587", smtp.PlainAuth("", e.From, "password123", "smtp.gmail.com"))
+	SendSMTP(e, "smtp.gmail.com:587", smtp.PlainAuth("", e.From, "password123", "smtp.gmail.com"))
 }
 
 func ExampleGmailWithConfig() {
