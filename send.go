@@ -5,7 +5,55 @@ import (
 	"fmt"
 	"net/mail"
 	"net/smtp"
+	"sync"
 )
+
+// MailBox type
+type MailBox struct {
+	envelopes chan Email
+	closed    chan struct{}
+	closer    sync.Once
+}
+
+// NewMailBox returns a mailbox with own queue
+func NewMailBox() *MailBox {
+	mailBox := &MailBox{
+		envelopes: make(chan Email),
+		closed:    make(chan struct{}),
+	}
+
+	go func() {
+		for {
+			select {
+			case envelope := <-mailBox.envelopes:
+				_ = Send(&envelope)
+			case <-mailBox.closed:
+				return
+			}
+		}
+	}()
+
+	return mailBox
+}
+
+// Close mailbox, use closer to avoid possible race condition.
+// Throws away all messages left in pipe
+func (m *MailBox) Close() {
+	m.closer.Do(func() {
+		close(m.closed)
+	})
+}
+
+// Put new email in mail queue
+func (m *MailBox) Put(e Email) error {
+	select {
+	case m.envelopes <- e:
+		return nil
+		// sent successfully
+	case <-m.closed:
+		return errors.New("Put on closed mailbox")
+	}
+}
 
 // Send sends email using the values specified in config
 func Send(e *Email) error {
